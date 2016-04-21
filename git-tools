@@ -93,7 +93,7 @@ function clean_remotes {
     echo "Not Fetching\n"
   fi
 
-  BRANCHES=$((git branch -r --merged "origin/$MERGE_BRANCH" | sed "s/  origin\///" | grep -v $MERGE_BRANCH) || echo "")
+  BRANCHES=$((git branch -r --merged "origin/$MERGE_BRANCH" | sed "s/  origin\///" | grep -v HEAD | grep -v $MERGE_BRANCH) || echo "")
   while [ $# -gt 0 ]; do
     BRANCHES=$(echo "$BRANCHES" | grep -v "$1" || echo "")
     shift
