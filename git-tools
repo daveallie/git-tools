@@ -6,6 +6,21 @@ function pluralize {
   echo "$1 $([ "$1" -eq 1 ] && echo "$2" || echo "$3")"
 }
 
+function print_help {
+  echo "Git-Tools: A small utility tool for managing branches in Git repositories.\nv1.0.4\n\nUsage:"
+  echo "git-tools <tool> [options]\n"
+  echo "   Tool: Clean Branches"
+  echo "  Usage: git-tools clean [-n/--no-fetch] [-m/--merge-branch <merge_branch>] [*ignore_branches]"
+  echo "Example: git-tools clean -m develop master staging"
+  echo "   Desc: Example above will identify branches merged into develop that aren't master or staging"
+  echo "         Default merge branch is master\n"
+  echo "   Tool: Old Branches"
+  echo "  Usage: git-tools old [-n/--no-fetch] [-d/--days <num_days>]"
+  echo "Example: git-tools old -d 14"
+  echo "   Desc: Example above finds remote branches that haven't had a commit in 14 days"
+  echo "         Default is 7 days"
+}
+
 function old_branches {
   DAYS_AGO=7
   FETCH=true
@@ -126,5 +141,6 @@ function clean_remotes {
 case $1 in
   clean_branches|clean_remotes|clean) shift; clean_remotes "$@";;
   old_branches|old_remotes|old) shift; old_branches "$@";;
-  *) echo 'Please use clean_branches, clean_remotes, clean, or old_branches, old_remotes, old as first argument!'; exit 1;;
+  help|h|--help|-h) print_help;;
+  *) print_help; exit 1;;
 esac
