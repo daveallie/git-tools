@@ -187,7 +187,7 @@ function clean_remotes {
     while true; do
       read -p "Do you wish to delete all of these branches? (y/n) " yn
       case $yn in
-        [Yy]* ) echo $REAL_BRANCHES | xargs git push --delete origin; break;;
+        [Yy]* ) echo "${REAL_BRANCHES[@]}" | xargs git push --delete origin; break;;
         [Nn]* ) exit;;
         * ) echo "Please answer y or n.";;
       esac
