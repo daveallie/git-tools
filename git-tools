@@ -7,23 +7,24 @@ function pluralize {
 }
 
 function print_help {
-  echo "Git-Tools: A small utility tool for managing branches in Git repositories.\nv1.0.4\n\nUsage:"
+  echo "Git-Tools: A small utility tool for managing branches in Git repositories.\nv1.1.0\n\nUsage:"
   echo "git-tools <tool> [options]\n"
   echo "   Tool: Clean Branches"
-  echo "  Usage: git-tools clean [-n/--no-fetch] [-m/--merge-branch <merge_branch>] [*ignore_branches]"
-  echo "Example: git-tools clean -m develop master staging"
-  echo "   Desc: Example above will identify branches merged into develop that aren't master or staging"
+  echo "  Usage: git-tools clean [-n/--no-fetch] [-u/--user <user> | --me] [-m/--merge-branch <merge_branch>] [*ignore_branches]"
+  echo "Example: git-tools clean -u \"John Smith\" -m develop master staging"
+  echo "   Desc: Example above will identify branches merged into develop that aren't master or staging authored by 'John Smith'"
   echo "         Default merge branch is master\n"
   echo "   Tool: Old Branches"
-  echo "  Usage: git-tools old [-n/--no-fetch] [-d/--days <num_days>]"
-  echo "Example: git-tools old -d 14"
-  echo "   Desc: Example above finds remote branches that haven't had a commit in 14 days"
+  echo "  Usage: git-tools old [-n/--no-fetch] [-u/--user <user> | --me] [-d/--days <num_days>]"
+  echo "Example: git-tools old -u \"John Smith\" -d 14"
+  echo "   Desc: Example above finds remote branches that haven't had a commit in 14 days authored by 'John Smith'"
   echo "         Default is 7 days"
 }
 
 function old_branches {
   DAYS_AGO=7
   FETCH=true
+  USER=""
 
   while [ $# -gt 0 ]; do
     KEY="$1"
@@ -35,6 +36,28 @@ function old_branches {
           else
             echo "days flag needs an argument!"
             exit 1
+          fi
+          ;;
+        -u|--user)
+          shift
+          if [ $# -gt 0 ]; then
+            if [ -n "$USER" ]; then
+              echo "user already set, please use at most one of --user/-u/--me"
+              exit 1
+            else
+              USER=$1
+            fi
+          else
+            echo "user flag needs an argument!"
+            exit 1
+          fi
+          ;;
+        --me)
+          if [ -n "$USER" ]; then
+            echo "user already set, please use at most one of --user/-u/--me"
+            exit 1
+          else
+            USER=$(git config user.name)
           fi
           ;;
         -n|--no-fetch) FETCH=false;;
@@ -59,7 +82,7 @@ function old_branches {
     LAST_COMMIT_TIME=$(echo "${LAST_COMMIT_INFO//;/\n}" | head -n 1)
     LAST_COMMIT_EPOCH=$(date -j -f "%Y-%m-%d %T %z" "$LAST_COMMIT_TIME" +%s)
     LAST_COMMIT_AUTHOR=$(echo "${LAST_COMMIT_INFO//;/\n}" | tail -n 1)
-    if [ "$LAST_COMMIT_EPOCH" -lt "$COMPARE_TIME" ]; then
+    if [ "$LAST_COMMIT_EPOCH" -lt "$COMPARE_TIME" ] && ( [ ! -n "$USER" ] || [ "$USER" = "$LAST_COMMIT_AUTHOR" ] ); then
       OUT_ARRAY+=("$(printf "%s\t%-25s\t%s" "$(date -j -f "%Y-%m-%d %T %z" "$LAST_COMMIT_TIME" "+%Y-%m-%d %H:%M")" "$LAST_COMMIT_AUTHOR" "$(echo $BRANCH | sed "s/origin\///")")")
     fi
   done
@@ -69,7 +92,6 @@ function old_branches {
   if [ "$OUT_ARRAY_LEN" -eq 0 ]; then
     echo "No branches with last commit more than $DAYS_AGO day/s ago."
   else
-
     echo "$(pluralize $OUT_ARRAY_LEN "branch" "branches") with last commit more than $(pluralize $DAYS_AGO "day" "days") ago:"
     printf "%-16s\t%-25s\t%s\n" "  Last Commit" "  Author" "  Branch"
     for ELEM in "${OUT_ARRAY[@]}"; do
@@ -81,6 +103,7 @@ function old_branches {
 function clean_remotes {
   MERGE_BRANCH=master
   FETCH=true
+  USER=""
 
   while [ $# -gt 0 ]; do
     KEY="$1"
@@ -92,6 +115,28 @@ function clean_remotes {
           else
             echo "merge branch flag needs an argument!"
             exit 1
+          fi
+          ;;
+        -u|--user)
+          shift
+          if [ $# -gt 0 ]; then
+            if [ -n "$USER" ]; then
+              echo "user already set, please use at most one of --user/-u/--me"
+              exit 1
+            else
+              USER=$1
+            fi
+          else
+            echo "user flag needs an argument!"
+            exit 1
+          fi
+          ;;
+        --me)
+          if [ -n "$USER" ]; then
+            echo "user already set, please use at most one of --user/-u/--me"
+            exit 1
+          else
+            USER=$(git config user.name)
           fi
           ;;
         -n|--no-fetch) FETCH=false;;
@@ -114,27 +159,39 @@ function clean_remotes {
     shift
   done
 
-  if [ -n "$BRANCHES" ]; then
+  REAL_BRANCHES=()
+  OUT_ARRAY=()
+
+  for BRANCH in $BRANCHES; do
+    LAST_COMMIT_INFO=$(git show --format="%ci;%cn" origin/$BRANCH | head -n 1)
+    LAST_COMMIT_TIME=$(echo "${LAST_COMMIT_INFO//;/\n}" | head -n 1)
+    LAST_COMMIT_AUTHOR=$(echo "${LAST_COMMIT_INFO//;/\n}" | tail -n 1)
+    if [ ! -n "$USER" ] || [ "$USER" = "$LAST_COMMIT_AUTHOR" ]; then
+      REAL_BRANCHES+=("$BRANCH")
+      OUT_ARRAY+=("$(printf "%s\t%-25s\t%s" "$(date -j -f "%Y-%m-%d %T %z" "$LAST_COMMIT_TIME" "+%Y-%m-%d %H:%M")" "$LAST_COMMIT_AUTHOR" "$(echo $BRANCH | sed "s/origin\///")")")
+    fi
+  done
+
+  REAL_BRANCHES_LEN=${#REAL_BRANCHES[@]}
+
+  if [ "$REAL_BRANCHES_LEN" -eq 0 ]; then
+    echo "No branches to remove.\n"
+  else
     echo "Branches that have been merged into $MERGE_BRANCH but have not been deleted:"
     printf "%-16s\t%-25s\t%s\n" "  Last Commit" "  Author" "  Branch"
-    for BRANCH in $BRANCHES; do
-      LAST_COMMIT_INFO=$(git show --format="%ci;%cn" "origin/$BRANCH" | head -n 1)
-      LAST_COMMIT_TIME=$(echo "${LAST_COMMIT_INFO//;/\n}" | head -n 1)
-      LAST_COMMIT_AUTHOR=$(echo "${LAST_COMMIT_INFO//;/\n}" | tail -n 1)
-      printf "%s\t%-25s\t%s\n" "$(date -j -f "%Y-%m-%d %T %z" "$LAST_COMMIT_TIME" "+%Y-%m-%d %H:%M")" "$LAST_COMMIT_AUTHOR" "$BRANCH"
-    done
+    for ELEM in "${OUT_ARRAY[@]}"; do
+      echo "$ELEM"
+    done | sort
     echo ""
 
     while true; do
       read -p "Do you wish to delete all of these branches? (y/n) " yn
       case $yn in
-        [Yy]* ) echo $BRANCHES | xargs git push --delete origin; break;;
+        [Yy]* ) echo $REAL_BRANCHES | xargs git push --delete origin; break;;
         [Nn]* ) exit;;
         * ) echo "Please answer y or n.";;
       esac
     done
-  else
-    echo "No branches to remove.\n"
   fi
 }
 
