@@ -7,7 +7,7 @@ function pluralize {
 }
 
 function print_help {
-  echo "Git-Tools: A small utility tool for managing branches in Git repositories.\nv1.1.0\n\nUsage:"
+  echo "Git-Tools: A small utility tool for managing branches in Git repositories.\nv1.2.0\n\nUsage:"
   echo "git-tools <tool> [options]\n"
   echo "   Tool: Clean Branches"
   echo "  Usage: git-tools clean [-n/--no-fetch] [-u/--user <user> | --me] [-m/--merge-branch <merge_branch>] [*ignore_branches]"
@@ -187,7 +187,19 @@ function clean_remotes {
     while true; do
       read -p "Do you wish to delete all of these branches? (y/n) " yn
       case $yn in
-        [Yy]* ) echo "${REAL_BRANCHES[@]}" | xargs git push --delete origin; break;;
+        [Yy]* )
+          echo "${REAL_BRANCHES[@]}" | xargs git push --delete origin
+          CURRENT_BRANCH=$(git branch | grep '*' | sed 's/* //')
+          LOCAL_BRANCHES_TO_DELETE=$(echo "${REAL_BRANCHES[@]}" | grep "$(echo "$(git branch | grep -v '*' | sed 's/  //')")" || echo "")
+          if echo "${REAL_BRANCHES[@]}" | grep -q "$CURRENT_BRANCH"; then
+            echo "Warning: Did not delete $CURRENT_BRANCH locally as it is the current branch!"
+          fi
+          echo "${REAL_BRANCHES[@]}" | grep -q "$(echo "$(git branch | grep '*' | sed 's/* //')")"
+          if [ -n "$LOCAL_BRANCHES_TO_DELETE" ]; then
+            echo $LOCAL_BRANCHES_TO_DELETE | xargs git branch -d
+          fi
+          break
+          ;;
         [Nn]* ) exit;;
         * ) echo "Please answer y or n.";;
       esac

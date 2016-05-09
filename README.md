@@ -14,7 +14,7 @@ Or you can just download the git-tools file, make it executable, and add it to y
 ```
 > git-tools help
 Git-Tools: A small utility tool for managing branches in Git repositories.
-v1.1.0
+v1.2.0
 
 Usage:
 git-tools <tool> [options]
